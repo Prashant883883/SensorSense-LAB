@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a2b">
+  <meta name="description" content="An interactive classroom lab for exploring smartphone motion sensors and Digital Twins.">
+  <title>SensorSense Lab — Smartphone Motion Research</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="SensorSense Lab home">
+        <span class="brand-mark">S</span>
+        <span><strong>SensorSense</strong><small>SMARTPHONE MOTION LAB</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-view="studentView">Student lab</button>
+        <button class="nav-link" data-view="researchView">Research dashboard</button>
+      </nav>
+      <span class="server-status"><i id="serverDot"></i><span id="serverStatus">Checking server</span></span>
+    </header>
+
+    <div id="completionNotice" class="completion-notice hidden" role="status" aria-live="polite">
+      <span class="completion-icon" aria-hidden="true">✓</span>
+      <div class="completion-copy"><strong id="completionTitle">Experiment completed</strong><p id="completionMessage">Your sensor data has been collected and saved.</p></div>
+      <button id="dismissCompletionNotice" class="completion-dismiss" type="button" aria-label="Dismiss notification">×</button>
+    </div>
+
+    <main>
+      <section id="studentView" class="view active-view">
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">INTERACTIVE SENSOR RESEARCH</p>
+            <h1>Move your phone.<br><em>Understand the data.</em></h1>
+            <p class="hero-lead">Explore how a smartphone senses movement, how measurements change, and how real sensor data can update a Digital Twin.</p>
+            <div class="hero-tags"><span>● Accelerometer</span><span>● Gyroscope</span><span>● Digital Twin</span></div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+            <div class="hero-phone"><div class="phone-camera"></div><div class="phone-screen"><span>LIVE</span><b>9.81</b><small>m/s²</small><div class="screen-wave"></div></div></div>
+            <div class="float-chip chip-one">ACCELERATION</div><div class="float-chip chip-two">ROTATION</div>
+          </div>
+        </section>
+
+        <section id="welcomePanel" class="panel welcome-panel">
+          <div class="section-heading"><div><p class="eyebrow">BEFORE YOU BEGIN</p><h2>Join the experiment</h2><p class="muted">Create a session to take part in the classroom sensor study.</p></div><span class="step-pill">STEP 01 / 03</span></div>
+          <form id="joinForm" class="join-grid">
+            <label class="field"><span>Your name or participant alias</span><input id="participantLabel" name="participantLabel" maxlength="60" placeholder="e.g. Alex or Group 2" required autocomplete="nickname"><small>Use a nickname if you do not want to enter your full name.</small></label>
+            <label class="field"><span>Device used</span><select id="deviceLabel"><option>Android smartphone</option><option>iPhone</option><option>iPad / Android tablet</option><option>Other device</option></select><small>This helps us interpret device compatibility.</small></label>
+            <div class="consent-box"><div class="consent-icon">ⓘ</div><div><strong>What will be collected?</strong><p>Your session label, activity type, timestamps and motion/orientation readings. Do not enter sensitive personal information. Sensor measurements are stored on the computer running this server and can be exported by the project team. This prototype is not anonymous when you use a recognisable name.</p><label class="check-line"><input type="checkbox" id="consentCheck"><span>I understand the information above and agree to take part voluntarily.</span></label></div></div>
+            <button class="button button-primary join-button" type="submit">Start my session <span>→</span></button>
+            <p id="joinError" class="form-error" role="alert"></p>
+          </form>
+        </section>
+
+        <section id="experimentPanel" class="hidden">
+          <div class="session-bar panel"><div><span class="eyebrow">ACTIVE PARTICIPANT</span><strong id="sessionGreeting">Welcome</strong><small id="sessionIdentifier"></small></div><button id="endSessionButton" class="button button-quiet">End session</button></div>
+          <div class="experiment-layout">
+            <aside class="experiment-sidebar panel">
+              <p class="eyebrow">YOUR EXPERIMENTS</p><h3>Explore four movements</h3>
+              <div id="activityList" class="activity-list">
+                <button class="activity-choice selected" data-activity="stationary"><span class="activity-number">01</span><span><b>Stay still</b><small>Understand the baseline</small></span><i>›</i></button>
+                <button class="activity-choice" data-activity="tilt"><span class="activity-number">02</span><span><b>Tilt the phone</b><small>Explore orientation</small></span><i>›</i></button>
+                <button class="activity-choice" data-activity="rotate"><span class="activity-number">03</span><span><b>Rotate the phone</b><small>Explore angular velocity</small></span><i>›</i></button>
+                <button class="activity-choice" data-activity="shake"><span class="activity-number">04</span><span><b>Move the phone</b><small>Explore acceleration changes</small></span><i>›</i></button>
+              </div>
+              <div class="progress-block"><div class="progress-label"><span>Experiment progress</span><b id="progressText">0 of 4</b></div><div class="progress-track"><span id="progressFill"></span></div></div>
+              <div class="privacy-note"><span>◈</span><p>Readings are collected only while an experiment is running. You can stop at any time.</p></div>
+            </aside>
+
+            <div class="experiment-main">
+              <section class="panel activity-intro">
+                <div class="activity-title-row"><div><p class="eyebrow" id="activityKicker">EXPERIMENT 01 · BASELINE</p><h2 id="activityTitle">Keep your phone still</h2></div><span class="duration-tag">⏱ 12 seconds</span></div>
+                <p id="activityDescription" class="activity-description">Place your phone flat on a stable table. We will record a baseline so we can compare it with the other movements.</p>
+                <div class="instruction-callout"><span class="callout-symbol">↗</span><div><strong id="instructionTitle">What to do</strong><p id="instructionText">Place the phone screen-up on a flat surface and do not touch it until the countdown finishes.</p></div></div>
+                <div class="experiment-actions"><button id="startCaptureButton" class="button button-primary">Enable sensors & start <span>→</span></button><button id="simulateButton" class="button button-secondary">Try a simulated demo</button><button id="stopCaptureButton" class="button button-danger hidden">Stop recording</button><span id="captureStatus" class="capture-status">Not recording</span></div>
+                <p id="sensorHelp" class="sensor-help">On iPhone, Safari may ask for motion permission after you press Start. Use HTTPS when opening this site from another device.</p>
+              </section>
+
+              <div class="live-grid">
+                <section class="panel twin-panel">
+                  <div class="panel-title"><div><p class="eyebrow">LIVE DIGITAL TWIN</p><h3>Your phone in virtual space</h3></div><span class="live-badge"><i></i> LIVE VIEW</span></div>
+                  <div class="twin-stage"><div class="twin-floor"></div><div class="twin-phone" id="twinPhone"><div class="twin-camera"></div><div class="twin-screen"><span>SENSORSENSE</span><b id="twinScreenValue">READY</b><small>VIRTUAL DEVICE</small></div><div class="twin-side"></div></div><div class="axis-label axis-x">X</div><div class="axis-label axis-y">Y</div><div class="axis-label axis-z">Z</div></div>
+                  <div class="twin-caption"><span class="legend-dot"></span><span id="twinCaption">Waiting for orientation data</span></div>
+                  <div class="explain-strip"><b>What is a Digital Twin?</b><p>A virtual representation that reflects information from a physical object. Here, your phone's orientation updates the virtual phone.</p></div>
+                </section>
+
+                <section class="panel live-data-panel">
+                  <div class="panel-title"><div><p class="eyebrow">LIVE MEASUREMENTS</p><h3>What is your phone sensing?</h3></div><span id="sampleCounter" class="sample-counter">0 samples</span></div>
+                  <div class="metric-card"><div class="metric-top"><span>Movement intensity</span><span class="metric-unit">m/s²</span></div><div class="metric-value" id="accMagnitude">—</div><p id="accMeaning">Start an experiment to see how much acceleration is being measured.</p><div class="metric-meter"><span id="accMeter"></span></div></div>
+                  <div class="metric-card metric-card-alt"><div class="metric-top"><span>Rotation speed</span><span class="metric-unit">°/s</span></div><div class="metric-value" id="rotationMagnitude">—</div><p id="rotationMeaning">The gyroscope detects how quickly the phone rotates.</p><div class="metric-meter"><span id="rotationMeter"></span></div></div>
+                  <div class="axis-values"><div><small>LEFT / RIGHT</small><b id="orientationRoll">—</b><span>tilt angle</span></div><div><small>FORWARD / BACK</small><b id="orientationPitch">—</b><span>tilt angle</span></div><div><small>RAW SAMPLES</small><b id="rawSampleCount">0</b><span>received</span></div></div>
+                </section>
+              </div>
+
+              <section class="panel chart-panel">
+                <div class="panel-title"><div><p class="eyebrow">LIVE SENSOR TRACE</p><h3>How the measurement changes over time</h3></div><div class="chart-legend"><span><i class="legend-acc"></i>Acceleration</span><span><i class="legend-rot"></i>Rotation</span></div></div>
+                <div class="chart-wrap"><canvas id="liveChart" aria-label="Live chart of acceleration and rotation" role="img"></canvas><div id="chartEmpty" class="chart-empty">Your live experiment graph will appear here.</div></div>
+                <p class="chart-explanation">A steady line suggests the measured quantity is changing less. Larger peaks show moments when the sensor detected stronger changes. The two traces use separate scales, so compare their patterns rather than their heights.</p>
+              </section>
+
+              <section id="resultPanel" class="panel result-panel hidden">
+                <div class="result-heading"><div><p class="eyebrow">ACTIVITY COMPLETE</p><h3>What did your phone discover?</h3></div><span class="result-check">✓</span></div>
+                <div class="result-grid"><div><small>Samples collected</small><b id="resultSamples">0</b></div><div><small>Average movement intensity</small><b id="resultAcceleration">—</b></div><div><small>Peak rotation speed</small><b id="resultRotation">—</b></div></div>
+                <p id="resultInterpretation" class="result-interpretation"></p>
+                <button id="nextActivityButton" class="button button-primary">Continue to next experiment <span>→</span></button>
+              </section>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="researchView" class="view research-view">
+        <div class="research-heading"><div><p class="eyebrow">PROJECT TEAM</p><h1>Research overview</h1><p class="hero-lead">A class-wide view of the smartphone sensor readings collected by participants.</p></div><button id="refreshResearchButton" class="button button-secondary">↻ Refresh data</button></div>
+        <div class="research-notice"><strong>Data handling:</strong> This dashboard shows aggregate device samples. The CSV export does not include participant names, but the server's local session file does. Restrict access to the server and its data folder.</div>
+        <div class="stat-grid"><article class="stat-card"><span>PARTICIPANT SESSIONS</span><b id="statParticipants">—</b><small>Sessions registered</small></article><article class="stat-card"><span>DEVICE SAMPLES</span><b id="statSamples">—</b><small>Real sensor samples saved</small></article><article class="stat-card"><span>COMPLETED SESSIONS</span><b id="statCompleted">—</b><small>Sessions marked completed</small></article><article class="stat-card"><span>SIMULATION SAMPLES</span><b id="statSimulation">—</b><small>Kept separate from device data</small></article></div>
+        <section class="panel research-table-panel"><div class="panel-title"><div><p class="eyebrow">CONDITION COMPARISON</p><h3>What changes across activities?</h3></div><button id="exportButton" class="button button-primary">↓ Export sensor CSV</button></div><div class="table-scroll"><table><thead><tr><th>Experiment</th><th>Samples</th><th>Avg. total acceleration</th><th>Avg. linear movement</th><th>Movement variation</th><th>Avg. rotation speed</th><th>Peak rotation speed</th></tr></thead><tbody id="researchTable"><tr><td colspan="7" class="empty-cell">No research data yet. Complete a phone experiment first.</td></tr></tbody></table></div><p class="table-footnote">Total acceleration may include gravity. Linear movement is calculated from acceleration without gravity (when the browser provides it). Missing sensor channels are reported as unavailable, not as zero.</p></section>
+        <section class="panel research-analysis-panel">
+          <div class="analysis-heading"><div><p class="eyebrow">TIME-SERIES EXPLORER</p><h3>See what happened during an experiment</h3><p>Choose an activity to inspect the actual sequence of recorded measurements.</p></div><label class="filter-field">Activity<select id="seriesActivity"><option value="all">All activities</option><option value="stationary">Stay still</option><option value="tilt">Tilt</option><option value="rotate">Rotate</option><option value="shake">Move / shake</option></select></label></div>
+          <div class="analysis-stats"><article><small>Visible records</small><b id="seriesCount">—</b></article><article><small>Average linear movement</small><b id="seriesLinearMean">—</b></article><article><small>Movement variation</small><b id="seriesLinearStd">—</b></article><article><small>Average rotation speed</small><b id="seriesRotationMean">—</b></article></div>
+          <div class="chart-pair">
+            <article class="sensor-chart-card">
+              <div class="sensor-chart-heading"><div><p class="eyebrow">ACCELEROMETER</p><h4>Linear acceleration by axis</h4><p>Movement after gravity is removed, when available.</p></div><span class="unit-tag">m/s²</span></div>
+              <div class="research-chart-legend"><span><i class="legend-acc"></i>X axis</span><span><i class="legend-y"></i>Y axis</span><span><i class="legend-z"></i>Z axis</span></div><p class="chart-key-note"><span class="raw-key"></span> Faint line: raw readings <span class="smooth-key"></span> Bright line: 7-sample moving average</p>
+              <div class="research-chart-wrap"><canvas id="accelerationChart" role="img" aria-label="Linear acceleration X, Y and Z over time"></canvas><div id="accelerationChartEmpty" class="chart-empty">No linear-acceleration readings are available for this selection.</div></div>
+            </article>
+            <article class="sensor-chart-card">
+              <div class="sensor-chart-heading"><div><p class="eyebrow">GYROSCOPE</p><h4>Rotation rate by axis</h4><p>How quickly the phone rotates around each axis.</p></div><span class="unit-tag">°/s</span></div>
+              <div class="research-chart-legend"><span><i class="legend-acc"></i>Alpha</span><span><i class="legend-y"></i>Beta</span><span><i class="legend-z"></i>Gamma</span></div><p class="chart-key-note"><span class="raw-key"></span> Faint line: raw readings <span class="smooth-key"></span> Bright line: 7-sample moving average</p>
+              <div class="research-chart-wrap"><canvas id="rotationChart" role="img" aria-label="Rotation rate alpha, beta and gamma over time"></canvas><div id="rotationChartEmpty" class="chart-empty">No rotation-rate readings are available for this selection.</div></div>
+            </article>
+          </div>
+          <div class="quality-grid">
+            <article><small>Estimated sample interval</small><b id="qualityInterval">—</b><p>Median time between consecutive records.</p></article>
+            <article><small>Linear acceleration coverage</small><b id="qualityLinearCoverage">—</b><p>Share of records with all three linear axes.</p></article>
+            <article><small>Rotation-rate coverage</small><b id="qualityRotationCoverage">—</b><p>Share of records with all three rotation axes.</p></article>
+            <article><small>Time span</small><b id="qualityDuration">—</b><p>Duration represented by the selected records.</p></article>
+          </div>
+          <div id="researchInterpretation" class="interpretation-card"><strong>What these measurements suggest</strong><p>Choose an activity to see its sensor measurements and an explanation in plain language.</p></div>
+          <div class="analysis-actions"><button class="button button-secondary" id="exportReportButton" type="button">Download analysis report (JSON)</button></div>
+        </section>
+        <section class="panel research-explainer"><div><p class="eyebrow">HOW TO READ THE RESULTS</p><h3>From sensor values to evidence</h3></div><div class="explainer-grid"><article><b>Total acceleration</b><p>The combined acceleration vector. It may include gravity, so a phone resting still can show a value close to 9.81 m/s².</p></article><article><b>Linear acceleration</b><p>Acceleration with gravity removed by the device/browser. It is a more useful indicator of movement intensity, when available.</p></article><article><b>Rotation speed</b><p>The combined angular velocity. It describes how quickly the phone turns, not its final orientation angle.</p></article></div></section>
+      </section>
+    </main>
+    <footer><span>SensorSense Lab · Classroom prototype</span><span>Smartphone sensors → measurements → understanding → Digital Twin</span></footer>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

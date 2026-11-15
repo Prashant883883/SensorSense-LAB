@@ -1,0 +1,8 @@
+{
+  "name": "sensorsense-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A classroom smartphone sensor experiment and research dashboard",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
