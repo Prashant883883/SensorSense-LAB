@@ -48,15 +48,147 @@ let chartFrame = null;
 let twinOrientation = { alpha: 0, beta: 0, gamma: 0 };
 let currentOrientation = { alpha: null, beta: null, gamma: null };
 
-const api = async (path, options = {}) => {
-  const response = await fetch(path, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-  return data;
+
+// Supabase connection
+const SUPABASE_URL = 'https://ssgwdctnawbiaujiakym.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_c4lKd9sgZ7QsIYUlzTqC0Q_iB3Vc0nc';
+
+const REST_HEADERS = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json'
 };
+
+async function supabaseRequest(table, query = '', options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+    method: options.method || 'GET',
+    headers: {
+      ...REST_HEADERS,
+      ...(options.returning ? { Prefer: 'return=representation' } : {})
+    },
+    body: options.body === undefined
+      ? undefined
+      : JSON.stringify(options.body)
+  });
+
+  const raw = await response.text();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = { message: raw };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || data.error_description ||
+      data.error || `Supabase request failed (${response.status})`
+    );
+  }
+
+  return data;
+}
+
+
+const api = async (path, options = {}) => {
+  const method = options.method || 'GET';
+  const body = options.body ? JSON.parse(options.body) : {};
+
+  if (path === '/api/health') {
+    await supabaseRequest('participants', '?select=id&limit=1');
+    return { ok: true };
+  }
+
+  if (path === '/api/sessions' && method === 'POST') {
+    const participantId = crypto.randomUUID();
+    const sessionId = crypto.randomUUID();
+    const participantCode = `P-${participantId.slice(0, 8).toUpperCase()}`;
+    const now = new Date().toISOString();
+
+    await supabaseRequest('participants', '', {
+      method: 'POST',
+      body: {
+        id: participantId,
+        participant_code: participantCode,
+        participant_label: body.participantLabel,
+        device_type: body.deviceLabel,
+        user_agent: body.userAgent,
+        consent_given: true
+      }
+    });
+
+    await supabaseRequest('sessions', '', {
+      method: 'POST',
+      body: {
+        id: sessionId,
+        participant_id: participantId,
+        activity_type: 'stationary',
+        device_label: body.deviceLabel,
+        consent_version: '2026-11-15-v1',
+        consented_at: now,
+        status: 'active'
+      }
+    });
+
+    return {
+      sessionId,
+      participantLabel: body.participantLabel
+    };
+  }
+
+  if (path === '/api/samples' && method === 'POST') {
+    const records = body.samples.map(sample => ({
+      session_id: body.sessionId,
+      recorded_at: sample.timestamp || new Date().toISOString(),
+      sample_id: crypto.randomUUID(),
+      activity: body.activity,
+      source: body.source,
+      axg: sample.axg,
+      ayg: sample.ayg,
+      azg: sample.azg,
+      ax: sample.ax,
+      ay: sample.ay,
+      az: sample.az,
+      acceleration_magnitude: sample.accelerationMagnitude,
+      acceleration_including_gravity_magnitude: sample.accelerationIncludingGravityMagnitude,
+      rotation_alpha: sample.rotationAlpha,
+      rotation_beta: sample.rotationBeta,
+      rotation_gamma: sample.rotationGamma,
+      rotation_rate_magnitude: sample.rotationRateMagnitude,
+      orientation_alpha: sample.alpha,
+      orientation_beta: sample.beta,
+      orientation_gamma: sample.gamma
+    }));
+
+    if (records.length) {
+      await supabaseRequest('sensor_readings', '', {
+        method: 'POST',
+        body: records
+      });
+    }
+
+    return { saved: records.length, source: body.source };
+  }
+
+  if (path === '/api/sessions/complete' && method === 'POST') {
+    await supabaseRequest(
+      'sessions',
+      `?id=eq.${encodeURIComponent(body.sessionId)}`,
+      {
+        method: 'PATCH',
+        body: {
+          status: 'completed',
+          ended_at: new Date().toISOString(),
+          completed_at: new Date().toISOString()
+        }
+      }
+    );
+    return { ok: true };
+  }
+
+  throw new Error(`Unsupported API request: ${path}`);
+};
+
 
 function setServerStatus(online, message) {
   $('serverDot').parentElement.classList.toggle('online', online);
