@@ -90,15 +90,18 @@ async function supabaseRequest(table, query = '', options = {}) {
 }
 
 
+
 const api = async (path, options = {}) => {
   const method = options.method || 'GET';
   const body = options.body ? JSON.parse(options.body) : {};
 
+  // Health check
   if (path === '/api/health') {
     await supabaseRequest('sessions', '?select=id&limit=1');
     return { ok: true };
   }
 
+  // Create participant and session
   if (path === '/api/sessions' && method === 'POST') {
     const participantId = crypto.randomUUID();
     const sessionId = crypto.randomUUID();
@@ -130,12 +133,10 @@ const api = async (path, options = {}) => {
       }
     });
 
-    return {
-      sessionId,
-      participantLabel: body.participantLabel
-    };
+    return { sessionId, participantLabel: body.participantLabel };
   }
 
+  // Save sensor readings
   if (path === '/api/samples' && method === 'POST') {
     const records = body.samples.map(sample => ({
       session_id: body.sessionId,
@@ -170,7 +171,10 @@ const api = async (path, options = {}) => {
     return { saved: records.length, source: body.source };
   }
 
+  // Complete session
   if (path === '/api/sessions/complete' && method === 'POST') {
+    const now = new Date().toISOString();
+
     await supabaseRequest(
       'sessions',
       `?id=eq.${encodeURIComponent(body.sessionId)}`,
@@ -178,12 +182,137 @@ const api = async (path, options = {}) => {
         method: 'PATCH',
         body: {
           status: 'completed',
-          ended_at: new Date().toISOString(),
-          completed_at: new Date().toISOString()
+          ended_at: now,
+          completed_at: now
         }
       }
     );
+
     return { ok: true };
+  }
+
+  // Load all sensor readings in pages
+  async function getAllReadings(filter = '') {
+    const results = [];
+    const pageSize = 1000;
+    let offset = 0;
+
+    while (true) {
+      const rows = await supabaseRequest(
+        'sensor_readings',
+        `?select=activity,source,recorded_at,ax,ay,az,axg,ayg,azg,acceleration_magnitude,rotation_alpha,rotation_beta,rotation_gamma,rotation_rate_magnitude${filter}&order=recorded_at.asc&limit=${pageSize}&offset=${offset}`
+      );
+
+      results.push(...rows);
+
+      if (rows.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    return results;
+  }
+
+  function mean(values) {
+    const valid = values.filter(Number.isFinite);
+    return valid.length
+      ? valid.reduce((sum, value) => sum + value, 0) / valid.length
+      : null;
+  }
+
+  function stddev(values) {
+    const valid = values.filter(Number.isFinite);
+    if (valid.length < 2) return null;
+    const average = mean(valid);
+    return Math.sqrt(
+      valid.reduce((sum, value) => sum + (value - average) ** 2, 0) / valid.length
+    );
+  }
+
+  function magnitude(x, y, z) {
+    return [x, y, z].every(Number.isFinite)
+      ? Math.hypot(x, y, z)
+      : null;
+  }
+
+  // Research dashboard summary
+  if (path === '/api/research/summary') {
+    const [sessions, readings] = await Promise.all([
+      supabaseRequest('sessions', '?select=id,status&limit=1000'),
+      getAllReadings()
+    ]);
+
+    const deviceReadings = readings.filter(row => row.source === 'device');
+    const simulationReadings = readings.filter(row => row.source === 'simulation');
+
+    const activities = ['stationary', 'tilt', 'rotate', 'shake'];
+    const byActivity = {};
+
+    for (const activity of activities) {
+      const rows = deviceReadings.filter(row => row.activity === activity);
+
+      const acceleration = rows
+        .map(row => row.acceleration_magnitude)
+        .filter(Number.isFinite);
+
+      const linear = rows
+        .map(row => magnitude(row.ax, row.ay, row.az))
+        .filter(Number.isFinite);
+
+      const rotation = rows
+        .map(row => row.rotation_rate_magnitude)
+        .filter(Number.isFinite);
+
+      byActivity[activity] = {
+        samples: rows.length,
+        meanAccelerationMagnitude: mean(acceleration),
+        meanLinearAcceleration: mean(linear),
+        linearAccelerationVariation: stddev(linear),
+        meanRotationRate: mean(rotation),
+        peakRotationRate: rotation.length ? Math.max(...rotation) : null
+      };
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      participantSessions: sessions.length,
+      totalSamples: deviceReadings.length,
+      simulationSamples: simulationReadings.length,
+      completedSessions: sessions.filter(row => row.status === 'completed').length,
+      byActivity
+    };
+  }
+
+  // Research dashboard charts
+  if (path.startsWith('/api/research/series')) {
+    const params = new URLSearchParams(path.split('?')[1] || '');
+    const activity = params.get('activity') || 'all';
+    const limit = Math.min(1200, Math.max(50, Number(params.get('limit')) || 600));
+
+    const filter = activity === 'all'
+      ? '&source=eq.device'
+      : `&source=eq.device&activity=eq.${encodeURIComponent(activity)}`;
+
+    const rows = await getAllReadings(filter);
+    const selected = rows.slice(-limit);
+
+    const samples = selected.map(row => ({
+      timestamp: row.recorded_at,
+      activity: row.activity,
+      ax: row.ax,
+      ay: row.ay,
+      az: row.az,
+      axg: row.axg,
+      ayg: row.ayg,
+      azg: row.azg,
+      accelerationMagnitude: row.acceleration_magnitude,
+      linearAccelerationMagnitude: magnitude(row.ax, row.ay, row.az),
+      rotationAlpha: row.rotation_alpha,
+      rotationBeta: row.rotation_beta,
+      rotationGamma: row.rotation_gamma,
+      rotationRateMagnitude: row.rotation_rate_magnitude
+    }));
+
+    return { activity, count: samples.length, samples };
   }
 
   throw new Error(`Unsupported API request: ${path}`);
