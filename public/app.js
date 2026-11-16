@@ -95,7 +95,7 @@ const api = async (path, options = {}) => {
   const body = options.body ? JSON.parse(options.body) : {};
 
   if (path === '/api/health') {
-    await supabaseRequest('participants', '?select=id&limit=1');
+    await supabaseRequest('sessions', '?select=id&limit=1');
     return { ok: true };
   }
 
