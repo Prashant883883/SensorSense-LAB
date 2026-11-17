@@ -969,17 +969,19 @@ window.addEventListener('resize', updateSeriesInterpretation);
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
 $('refreshResearchButton').addEventListener('click', loadResearchDashboard);
 
+
 $('exportButton').addEventListener('click', async () => {
   const button = $('exportButton');
 
   try {
     button.disabled = true;
-    button.textContent = 'Exporting...';
+    button.textContent = 'Preparing CSV...';
 
     let rows = [];
     let offset = 0;
     const pageSize = 1000;
 
+    // Fetch all sensor readings
     while (true) {
       const batch = await supabaseRequest(
         'sensor_readings',
@@ -997,6 +999,7 @@ $('exportButton').addEventListener('click', async () => {
       return;
     }
 
+    // Convert to CSV
     const columns = Object.keys(rows[0]);
 
     const escapeCSV = (value) => {
@@ -1015,29 +1018,54 @@ $('exportButton').addEventListener('click', async () => {
       type: 'text/csv;charset=utf-8;'
     });
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const file = new File(
+      [blob],
+      'SensorSense-LAB-Sensor-Data.csv',
+      { type: 'text/csv' }
+    );
 
-    link.href = url;
-    link.download = 'SensorSense-LAB-Sensor-Data.csv';
+    // iPhone / Android native sharing
+    if (
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    ) {
+      await navigator.share({
+        files: [file],
+        title: 'SensorSense-LAB Sensor Data',
+        text: 'Exported sensor readings'
+      });
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      alert(`Ready to share ${rows.length} sensor readings. Choose Save to Files if available.`);
+    } else {
+      // Desktop and unsupported-browser fallback
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
 
-    URL.revokeObjectURL(url);
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
-    alert(`Successfully exported ${rows.length} sensor readings!`);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+      alert('CSV export prepared. If it does not download, open the link in a supported browser.');
+    }
 
   } catch (error) {
-    console.error('CSV export failed:', error);
-    alert('Export failed: ' + error.message);
-
+    if (error.name !== 'AbortError') {
+      console.error('CSV export failed:', error);
+      alert('Export failed: ' + error.message);
+    }
   } finally {
     button.disabled = false;
     button.textContent = '↓ Export sensor CSV';
   }
 });
+
+
+
 
 $('exportReportButton').addEventListener('click', () => {
   const report={generatedAt:new Date().toISOString(),activity:$('seriesActivity').value,recordCount:researchSeries.length,
