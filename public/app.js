@@ -574,7 +574,19 @@ async function startDeviceCapture() {
   $('sensorHelp').textContent = 'Requesting permission and waiting for sensor readings…';
   try {
     await askSensorPermission();
-    await beginCapture('device');
+await beginCapture('device');
+
+// Automatically scroll to live sensor readings
+setTimeout(() => {
+  const liveChart = $('liveChart');
+
+  if (liveChart) {
+    liveChart.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+}, 500);
   } catch (error) {
     $('sensorHelp').textContent = error.message;
     $('captureStatus').textContent = 'Could not start sensors';
