@@ -968,7 +968,77 @@ $('seriesActivity').addEventListener('change', loadResearchSeries);
 window.addEventListener('resize', updateSeriesInterpretation);
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
 $('refreshResearchButton').addEventListener('click', loadResearchDashboard);
-$('exportButton').addEventListener('click', () => { window.location.href = '/api/research/export.csv'; });
+
+$('exportButton').addEventListener('click', async () => {
+  const button = $('exportButton');
+
+  try {
+    button.disabled = true;
+    button.textContent = 'Exporting...';
+
+    let rows = [];
+    let offset = 0;
+    const pageSize = 1000;
+
+    while (true) {
+      const batch = await supabaseRequest(
+        'sensor_readings',
+        `?select=*&order=recorded_at.asc&limit=${pageSize}&offset=${offset}`
+      );
+
+      rows.push(...batch);
+
+      if (batch.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    if (!rows.length) {
+      alert('No sensor data available to export.');
+      return;
+    }
+
+    const columns = Object.keys(rows[0]);
+
+    const escapeCSV = (value) => {
+      const text = value == null ? '' : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const csv = [
+      columns.map(escapeCSV).join(','),
+      ...rows.map(row =>
+        columns.map(column => escapeCSV(row[column])).join(',')
+      )
+    ].join('\r\n');
+
+    const blob = new Blob(['\uFEFF' + csv], {
+      type: 'text/csv;charset=utf-8;'
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'SensorSense-LAB-Sensor-Data.csv';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+    alert(`Successfully exported ${rows.length} sensor readings!`);
+
+  } catch (error) {
+    console.error('CSV export failed:', error);
+    alert('Export failed: ' + error.message);
+
+  } finally {
+    button.disabled = false;
+    button.textContent = '↓ Export sensor CSV';
+  }
+});
+
 $('exportReportButton').addEventListener('click', () => {
   const report={generatedAt:new Date().toISOString(),activity:$('seriesActivity').value,recordCount:researchSeries.length,
     summary:{meanLinearAcceleration:numericMean(researchSeries.map(x=>x.linearAccelerationMagnitude).filter(finite)),
